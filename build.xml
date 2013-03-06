@@ -1,0 +1,26 @@
+<project name="MyProject" default="yslow" basedir=".">
+    <description>
+        simple example build file
+    </description>
+
+    <!-- set global properties for this build -->
+    <!-- property name="src" location="src"/ -->
+
+    <target name="init">
+        <!-- Create the time stamp -->
+        <tstamp/>
+    </target>
+
+    <target name="lint" depends="init" description="Make sure our JS has no lint" >
+        <exec dir="./_test/structure/lint" executable="/usr/local/bin/node" failonerror="true">
+            <arg value="lint-config.js"/>
+        </exec>
+    </target>
+
+    <target name="yslow" depends="lint" description="Make sure our app passes YSlow" >
+        <exec dir="./_test/structure/yslow" executable="/bin/bash" failonerror="true">
+            <arg value="yslow.sh"/>
+        </exec>
+    </target>
+
+</project>
