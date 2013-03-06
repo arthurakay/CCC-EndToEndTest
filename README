@@ -1,7 +1,5 @@
-This is the Todo MVC app for AngularJS, stolen from the TodoMVC repo and modified to be more like the
-"angular-seed" architecture.
+This is the Todo MVC app for AngularJS, stolen from the TodoMVC repo and modified to be more like the "angular-seed" architecture.
 
 I also added unit tests.
 
-This will serve as an example project for my "End-to-End Unit Testing for Web Developers" talk at
-Chicago Code Camp 2013.
+This will serve as an example project for my "End-to-End Unit Testing for Web Developers" talk at Chicago Code Camp 2013.
