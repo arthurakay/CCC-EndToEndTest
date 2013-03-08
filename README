@@ -1,5 +1,28 @@
-This is the Todo MVC app for AngularJS, stolen from the TodoMVC repo and modified to be more like the "angular-seed" architecture.
+This is the Todo MVC app for AngularJS, stolen from the TodoMVC repo and modified to fit the "angular-seed" architecture.
 
-I also added unit tests.
+I also added unit tests and a variety of other things (more below).
 
 This will serve as an example project for my "End-to-End Unit Testing for Web Developers" talk at Chicago Code Camp 2013.
+
+=====
+
+NOTES
+
+"angular-seed" - https://github.com/angular/angular-seed
+
+This provides the default application setup, architecture, and testing resources.
+
+I have added some additional scripts in the project root, as well as the /_test/ folder - everything else is the stock angular-seed architecture.
+
+=====
+
+DEPENDENCIES
+
+Currently, the dependencies are:
+  - Anything that comes by default from angular-seed (like Testacular... see the README in the angular-seed repo for more info)
+  - Node.js
+    - LintRoller
+    - YSlow
+    - Express
+  - PhantomJS
+
