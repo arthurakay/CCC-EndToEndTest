@@ -26,3 +26,27 @@ Currently, the dependencies are:
     - Express
   - PhantomJS
 
+=====
+
+RUNNING TESTS
+
+Structural:
+  - LintRoller:
+    - run "./_test/structure/lint/lint-config.js" via Node.js
+
+  - YSlow:
+    - run "./scripts/web-server.js" via Node.js to start the local web server
+    - run "./_test/structure/yslow/yslow.sh" from your terminal
+
+Logical:
+  - Jasmine (Testacular):
+    - run "./scripts/test.sh" from your terminal
+
+Presentation:
+  - Testacular:
+    - run "./scripts/web-server.js" via Node.js to start the local web server
+    - run "./scripts/e2e-test.sh" from your terminal
+
+  - Siesta:
+    - run "./scripts/web-server.js" via Node.js to start the local web server
+    - visit "http://localhost:8000/_test/presentation/index.html" in your browser
