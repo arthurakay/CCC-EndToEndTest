@@ -20,3 +20,7 @@ junitReporter = {
   outputFile: 'test_out/unit.xml',
   suite: 'unit'
 };
+
+//USE FOR CONTINUOUS INTEGRATION, PRE-COMMIT, Etc...
+//It will give you an error code upon exit or 0 if all tests pass
+//singleRun = true;
