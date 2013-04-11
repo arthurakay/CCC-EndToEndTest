@@ -20,6 +20,8 @@ StartTest(function (t) {
             action  : 'type',
             element : '#new-todo',
             text    : 'Foo Bar[ENTER]'
+            //NOTE: I have tried just about every solution available on Stack Overflow to get the ENTER key to
+            //      run the event. No dice. Sad panda.
         },
 
         function (next) {
