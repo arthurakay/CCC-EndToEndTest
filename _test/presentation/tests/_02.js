@@ -19,9 +19,18 @@ StartTest(function (t) {
         {
             action  : 'type',
             element : '#new-todo',
-            text    : 'Foo Bar[ENTER]'
-            //NOTE: I have tried just about every solution available on Stack Overflow to get the ENTER key to
-            //      run the event. No dice. Sad panda.
+            text    : 'Foo Bar'
+        },
+
+        //SIMULATE THE FORM SUBMISSION
+        function(next) {
+            var form = document.getElementsByTagName('form')[0];
+
+            var evt = document.createEvent('HTMLEvents');
+            evt.initEvent('submit', false, true);
+            form.dispatchEvent(evt);
+
+            next();
         },
 
         function (next) {
@@ -29,9 +38,13 @@ StartTest(function (t) {
 
             t.is(todos.children.length, 1, '1 TODOs');
             next();
+        },
+
+        function(next) {
+            //test cleanup: we don't want any localstorage saved between tests
+            localStorage.clear();
+
+            next();
         }
     );
-
-    //test cleanup: we don't want any localstorage saved between tests
-    localStorage.clear();
 });

@@ -1,0 +1,178 @@
+/*
+
+Siesta 2013-04-12
+Copyright(c) 2009-2013 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/products/siesta/license
+
+*/
+Ext.define('Siesta.Harness.Browser.UI.AssertionGrid', {
+
+    extend      : 'Ext.tree.Panel',
+    
+    cls         : 'siesta-assertion-grid hide-simulated',
+    alias       : 'widget.assertiongrid',
+
+    enableColumnHide    : false,
+    enableColumnMove    : false,
+    enableColumnResize  : false,
+    sortableColumns     : false,
+    border              : false,
+    forceFit            : true,
+    minWidth            : 100,
+    trackMouseOver      : false,
+
+    resultTpl           : null,
+    
+    
+    initComponent : function() {
+        
+        Ext.apply(this, {
+            resultTpl   : new Ext.XTemplate(
+                '<span class="assertion-text">{[this.getDescription(values.result)]}</span>{[this.getAnnotation(values)]}',
+                {
+                    getDescription : function (result) {
+                        if (result instanceof Siesta.Result.Summary)
+                            return result.description.join('<br>')
+                        else
+                            return result.isWarning ? 'WARN: ' + result.description : result.description
+                    },
+                    getAnnotation : function (data) {
+                        var annotation = data.result.annotation
+                        
+                        if (annotation) {
+                            return '<pre style="margin-left:' + data.depth * 16 + 'px" class="tr-assert-row-annontation">' + Ext.String.htmlEncode(annotation) + '</pre>'
+                        } else
+                            return '';
+                    }
+                }
+            ),
+
+            columns     : [
+                {
+                    xtype           : 'assertiontreecolumn',
+                    header          : 'Results',
+                    flex            : 1,
+                    
+                    dataIndex       : 'folderStatus',
+                    renderer        : this.resultRenderer,
+                    scope           : this,
+                    
+                    menuDisabled    : true,
+                    sortable        : false
+                } 
+            ],
+            
+            rootVisible : false,
+            rowLines    : true,
+                    
+            viewType    : 'filterabletreeview',
+            viewConfig  : {
+                enableTextSelection     : true,
+                stripeRows              : false,
+                disableSelection        : true,
+                markDirty               : false,
+                animate                 : false,
+                trackOver               : false,
+
+                // dummy store to be re-defined before showing each test
+                store                   : new Ext.data.NodeStore({ fields : [], data : [] }),
+
+                onAdd                   : function (store, records, index) {
+                    this.refreshSize    = Ext.emptyFn;
+                    var val             = Ext.tree.View.prototype.onAdd.apply(this, arguments);
+                    this.refreshSize    = Ext.tree.View.prototype.refreshSize;
+                    
+                    // if some record was last and now it is not - we need to update it visual presentation,
+                    // which will change from
+                    //                         |_
+                    // to 
+                    //                         |_
+                    //                         |
+                    if (index == store.getCount() - 1) this.refreshNode(index - 1)
+                    
+                    // TODO also need to update previous nodes, when adding a node with different depth
+                    
+                    return val;
+                },
+                
+                onUpdate                : function () {
+                    this.refreshSize    = Ext.emptyFn;
+                    var val             = Ext.tree.View.prototype.onUpdate.apply(this, arguments);
+                    this.refreshSize    = Ext.tree.View.prototype.refreshSize;
+                    
+                    return val;
+                },
+
+                // this should be kept `false` - otherwise assertion grid goes crazy, see #477
+                deferInitialRefresh     : false,
+                
+                getRowClass             : function(record, rowIndex, rowParams, store) {
+                    var result      = record.getResult()
+                    
+                    var cls         = ''
+                    
+                    // TODO switch to "instanceof"
+                    switch (result.meta.name) {
+                        case 'Siesta.Result.Diagnostic': 
+                            return 'tr-diagnostic-row ' + (result.isWarning ? 'tr-warning-row' : '');
+                    
+                        case 'Siesta.Result.Summary': 
+                            return 'tr-summary-row ' + (result.isFailed ? ' tr-summary-failure' : '');
+                    
+                        case 'Siesta.Result.SubTest':
+                            cls     = 'tr-subtest-row tr-subtest-row-' + record.get('folderStatus')
+                            
+                            if (result.test.specType == 'describe') cls += ' tr-subtest-row-describe'
+                            if (result.test.specType == 'it') cls += ' tr-subtest-row-it'
+                        
+                            return cls;
+                        
+                        case 'Siesta.Result.Assertion':
+                            cls     += 'tr-assertion-row '
+                        
+                            if (result.isWaitFor) 
+                                cls += 'tr-waiting-row ' + (result.completed ? (result.passed ? 'tr-waiting-row-passed' : 'tr-assertion-row-failed tr-waiting-row-failed') : '')
+                            else if (result.isException) 
+                                cls += result.isTodo ? 'tr-exception-todo-row' : 'tr-exception-row'
+                            else if (result.isTodo)
+                                cls += result.passed ? 'tr-todo-row-passed' : 'tr-todo-row-failed'
+                            else
+                                cls += result.passed ? 'tr-assertion-row-passed' : 'tr-assertion-row-failed'
+                            
+                            return cls
+                        default:
+                            throw "Unknown result class"
+                    }
+                }
+            }
+        });
+
+        this.callParent(arguments);
+    },           
+                
+    resultRenderer : function (value, metaData, record, rowIndex, colIndex, store) {
+        return this.resultTpl.apply(record.data);
+    },
+    
+    
+    bindStore : function (store, isInitial) {
+        var me      = this
+        
+//        if (me.store) me.mun(me.store, {
+//            scope       : me,
+//            rootchange  : me.onRootChange,
+//            clear       : me.onClear
+//        });
+
+        me.store    = store;
+        
+        if (me.getView().store != store.nodeStore) me.getView().bindStore(store.nodeStore, isInitial);
+        
+//        me.mon(store, {
+//            scope       : me,
+//            rootchange  : me.onRootChange,
+//            clear       : me.onClear
+//        });
+    }
+})

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">/*
+
+Siesta 2013-04-12
+Copyright(c) 2009-2013 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/products/siesta/license
+
+*/
+<span id='Siesta-Test-Browser'>/**
+</span> * 
+@class Siesta.Test.Browser
+@extends Siesta.Test
+@mixin Siesta.Test.Simulate.Event
+@mixin Siesta.Test.TextSelection 
+@mixin Siesta.Test.Simulate.Mouse
+@mixin Siesta.Test.Simulate.Keyboard
+
+
+A base class for testing a generic browser functionality. It has various DOM-related assertions, and is not optimized for any framework.
+
+*/
+Class('Siesta.Test.Browser', {
+    
+    isa         : Siesta.Test,
+        
+    does        :  [ 
+        Siesta.Test.Simulate.Event,
+        Siesta.Test.Simulate.Mouse,
+        Siesta.Test.Simulate.Keyboard,
+        Siesta.Test.Element,
+        Siesta.Test.TextSelection
+    ],
+
+    has : {
+        // this will be a shared array instance between all subtests
+        // it should not be overwritten, instead modify individual elements:
+        // NO: this.currentPosition = [ 1, 2 ]
+        // YES: this.currentPosition[ 0 ] = 1
+        // YES: this.currentPosition[ 1 ] = 2
+        currentPosition : {
+           init : function () { return [ 0, 0 ]; }
+        }
+    },
+
+    methods : { 
+        $ : function () {
+            var local$ = $.rebindWindowContext(this.global);
+            return local$.apply(this.global, arguments);
+        },
+        
+        
+        processSubTestConfig : function () {
+            var res             = this.SUPERARG(arguments)
+            var me              = this
+            
+            Joose.A.each([ 
+                'currentPosition', 
+                'actionDelay', 'afterActionDelay', 
+                'simulateEventsWith',
+                'dragDelay', 'moveCursorBetweenPoints', 'dragPrecision', 'overEls'
+            ], function (name) {
+                res[ name ]     = me[ name ]
+            })
+            
+            return res
+        },
+        
+        
+        // Normalizes the element to an HTML element. Every 'framework layer' will need to provide its own implementation
+        // This implementation accepts either a CSS selector or an Array with xy coordinates.
+        normalizeElement : function (el, allowMissing) {
+            if (typeof el === 'string') {
+                // DOM query
+                var origEl = el;
+                el = this.$(el)[ 0 ];
+                if (!allowMissing &amp;&amp; !el) {
+                    throw 'No DOM element found found for CSS selector: ' + origEl;
+                }
+            }
+            
+            if (this.valueIsArray(el)) {
+                var document    = this.global.document
+                
+                el = document.elementFromPoint(el[0], el[1]) || document.body;
+            }
+            
+            return el;
+        },
+        
+        
+        // this method generally has the same semantic as the &quot;normalizeElement&quot;, its being used in 
+        // Siesta.Test.Action.Role.HasTarget to determine what to pass to next step
+        //
+        // on the browser level the only possibility is DOM element
+        // but on ExtJS level user can also use ComponentQuery and next step need to receive the 
+        // component instance
+        normalizeActionTarget : function (el) {
+            var result = this.normalizeElement(el);
+            
+            if (!result) {
+                throw 'No action target found for: ' + el;
+            }
+            return result;
+        },
+        
+        
+        // private
+        getPathBetweenPoints: function (from, to) {
+            if (typeof from[0] !== 'number' || typeof from[1] !== 'number' || typeof to[0] !== 'number' || typeof to[1] !== 'number') {
+                throw 'Incorrect arguments passed to getPathBetweenPoints';
+            }
+
+            var stops = [],
+                x0 = Math.floor(from[0]),
+                x1 = Math.floor(to[0]),
+                y0 = Math.floor(from[1]),
+                y1 = Math.floor(to[1]),
+                dx = Math.abs(x1 - x0),
+                dy = Math.abs(y1 - y0),
+                sx, sy, err, e2;
+
+            if (x0 &lt; x1) {
+                sx = 1;
+            } else {
+                sx = -1;
+            }
+
+            if (y0 &lt; y1) {
+                sy = 1;
+            } else {
+                sy = -1;
+            }
+            err = dx - dy;
+            
+            while (x0 !== x1 || y0 !== y1) {
+                e2 = 2 * err;
+                if (e2 &gt; -dy) {
+                    err = err - dy;
+                    x0 = x0 + sx;
+                }
+
+                if (e2 &lt; dx) {
+                    err = err + dx;
+                    y0 = y0 + sy;
+                }
+                stops.push([x0, y0]);
+            }
+
+            stops.push(to);
+            return stops;
+        },
+
+        randomBetween : function (min, max) {
+            return Math.round(min + (Math.random()*(max - min)));
+        },
+
+        
+        // private
+        valueIsArray : function(a) {
+            return a &amp;&amp; (a instanceof Array || a instanceof this.global.Array);
+        },
+        
+        
+<span id='Siesta-Test-Browser-method-elementFromPoint'>        /**
+</span>         * This method will return the top-most DOM element at the specified coordinates from the test page.
+         * 
+         * @param {Number} x The X coordinate
+         * @param {Number} y The Y coordinate
+         * @return {HTMLElement} The top-most element at the specified position on the test page
+         */
+        elementFromPoint : function (x, y) {
+            return this.global.document.elementFromPoint(x, y)
+        },
+
+        getElementAtCursor : function() {
+            var xy          = this.currentPosition,
+                document    = this.global.document;
+            
+            return document.elementFromPoint(xy[0], xy[1]) || document.body;
+        },
+
+<span id='Siesta-Test-Browser-method-waitForEvent'>        /**
+</span>         * This method will wait for the first browser `event`, fired by the provided `observable` and will then call the provided callback.
+         * 
+         * @param {Mixed} observable Any browser observable, window object, element instances, CSS selector.
+         * @param {String} event The name of the event to wait for
+         * @param {Function} callback The callback to call 
+         * @param {Object} scope The scope for the callback
+         * @param {Number} timeout The maximum amount of time to wait for the condition to be fulfilled. Defaults to the {@link Siesta.Test.ExtJS#waitForTimeout} value.
+         */
+        waitForEvent : function (observable, event, callback, scope, timeout) {
+            var eventFired      = false
+            
+            this.$(observable).bind(event, function () { eventFired = true })
+            
+            this.waitFor({
+                method          : function() { return eventFired; }, 
+                callback        : callback,
+                scope           : scope,
+                timeout         : timeout,
+                assertionName   : 'waitForEvent',
+                description     : ' observable to fire its &quot;' + event + '&quot; event'
+            });
+        },
+        
+        
+        addListenerToObservable : function (observable, event, listener) {
+            this.$(observable).bind(event, listener)
+        },
+        
+        
+        removeListenerFromObservable : function (observable, event, listener) {
+            this.$(observable).unbind(event, listener)
+        },
+        
+        
+        verifyExpectedNumberOfFiredEvents : function (actual, expected) {
+            var operator        = '=='
+            
+            if (this.typeOf(expected) == 'String') {
+                var match       = /([&lt;&gt;=]=?)\s*(\d+)/.exec(expected)
+                
+                if (!match) throw new Error(&quot;Wrong format for expected number of events: &quot; + expected)
+                
+                operator        = match[ 1 ]
+                expected        = Number(match[ 2 ])
+            }
+            
+            switch (operator) {
+                case '==' : return actual == expected
+                case '&lt;=' : return actual &lt;= expected
+                case '&gt;=' : return actual &gt;= expected
+                case '&lt;' : return actual &lt; expected
+                case '&gt;' : return actual &gt; expected
+            }
+        },
+        
+
+<span id='Siesta-Test-Browser-method-firesOk'>        /**
+</span>         * This assertion verifies the number of certain events fired by provided observable instance during provided period.
+         * 
+         * For example:
+         *
+
+    t.firesOk({
+        observable      : store,
+        events          : {
+            { update : 1, add : 2, datachanged : '&gt; 1' }
+        },
+        during          : function () {
+            store.getAt(0).set('Foo', 'Bar');
+            
+            store.add({ FooBar : 'BazQuix' })
+            store.add({ Foo : 'Baz' })
+        },
+        desc            : 'Correct events fired'
+    })
+    
+    // or
+    
+    t.firesOk({
+        observable      : store,
+        events          : {
+            { update : 1, add : 2, datachanged : '&gt;= 1' }
+        },
+        during          : 1
+    })
+    
+    store.getAt(0).set('Foo', 'Bar');
+    
+    store.add({ FooBar : 'BazQuix' })
+    store.add({ Foo : 'Baz' })
+    
+         *
+         * Normally this method accepts a single object with various options (as shown above), but also can be called in 2 additional shortcuts forms:
+         * 
+
+    // 1st form for multiple events
+    t.firesOk(observable, { event1 : 1, event2 : '&gt;1' }, description)
+    
+    // 2nd form for single event
+    t.firesOk(observable, eventName, 1, description)
+    t.firesOk(observable, eventName, '&gt;1', description)
+
+         * 
+         * In both forms, `during` is assumed to be undefined and `description` is optional.
+         * 
+         * @param {Object} options An obect with the following properties:
+         * @param {Ext.util.Observable/Ext.Element} options.observable The observable instance that will fire events
+         * @param {Object} options.events The object, properties of which corresponds to event names and values - to expected 
+         * number of this event triggering. If value of some property is a number then exact that number of events is expected. If value
+         * of some property is a string starting with one of the comparison operators like &quot;\&lt;&quot;, &quot;\&lt;=&quot; etc and followed by the number
+         * then Siesta will perform that comparison with the number of actualy fired events.
+         * @param {Number/Function} [options.during] If provided as a number denotes the number of milliseconds during which
+         * this assertion will &quot;record&quot; the events from observable, if provided as function - then this assertion will &quot;record&quot;
+         * only events fired during execution of this function. If not provided at all - assertions are recorded until the end of
+         * current test (or sub-test)  
+         * @param {Function} [options.callback] A callback to call after this assertion has been checked. Only used if `during` value is provided. 
+         * @param {String} [options.desc] A description for this assertion
+         */
+        firesOk: function (options, events, n, timeOut, func, desc, callback) {
+            //                    |        backward compat arguments        | 
+            var me              = this;
+            var sourceLine      = me.getSourceLine();
+            
+            var observable, during
+            
+            if (arguments.length == 1) {
+                observable      = options.observable
+                events          = options.events
+                during          = options.during
+                desc            = options.desc || options.description
+                callback        = options.callback
+                
+                timeOut         = this.typeOf(during) == 'Number' ? during : null
+                func            = this.typeOf(during) == 'Function' ? during : null
+                
+            } else if (arguments.length &gt;= 5) {
+                // old signature, backward compat
+                observable      = options
+                
+                if (this.typeOf(events) == 'String') {
+                    var obj         = {}
+                    obj[ events ]   = n
+                    
+                    events          = obj
+                }
+            } else if (arguments.length &lt;= 3 &amp;&amp; this.typeOf(events) == 'Object') {
+                // shortcut form 1
+                observable      = options
+                desc            = n
+            } else if (arguments.length &lt;= 4 &amp;&amp; this.typeOf(events) == 'String') {
+                // shortcut form 2
+                observable      = options
+                
+                var obj         = {}
+                obj[ events ]   = n
+                events          = obj
+                
+                desc            = timeOut
+                timeOut         = null
+            } else
+                throw new Error(&quot;Unrecognized signature for `firesOk`&quot;)
+            
+            // start recording
+            var counters    = {};
+            var countFuncs  = {};
+
+            Joose.O.each(events, function (expected, eventName) {
+                counters[ eventName ]   = 0
+                
+                var countFunc   = countFuncs[ eventName ] = function () {
+                    counters[ eventName ]++
+                }
+                
+                me.addListenerToObservable(observable, eventName, countFunc);    
+            })
+            
+            
+            // stop recording and verify the results
+            var stopRecording   = function () {
+                Joose.O.each(events, function (expected, eventName) {
+                    me.removeListenerFromObservable(observable, eventName, countFuncs[ eventName ]);
+                    
+                    var actualNumber    = counters[ eventName ]
+    
+                    if (me.verifyExpectedNumberOfFiredEvents(actualNumber, expected))
+                        me.pass(desc, {
+                            descTpl         : 'Observable fired ' + actualNumber + ' `' + eventName + '` events'
+                        });
+                    else
+                        me.fail(desc, {
+                            assertionName   : 'firesOk',
+                            sourceLine      : sourceLine,
+                            descTpl         : 'Observable fired expected number of `' + eventName + '` events',
+                            got             : actualNumber,
+                            gotDesc         : 'Actual number of events',
+                            need            : expected,
+                            needDesc        : 'Expected number of events'
+                        });
+                })
+            }
+            
+            if (timeOut) {
+                var async               = this.beginAsync(timeOut + 100);
+                
+                var originalSetTimeout  = this.originalSetTimeout;
+    
+                originalSetTimeout(function () {
+                    me.endAsync(async);
+                    
+                    stopRecording()
+    
+                    callback &amp;&amp; me.processCallbackFromTest(callback);
+                }, timeOut);
+            } else if (func) {
+                func()
+                
+                stopRecording()
+                
+                callback &amp;&amp; me.processCallbackFromTest(callback)
+            } else {
+                this.on('beforetestfinalizeearly', stopRecording)
+            }
+        },
+        
+        
+        // deprecated
+        willFireNTimes: function (observable, event, n, desc, isGreaterEqual) {
+            this.firesOk(observable, event, isGreaterEqual ? '&gt;=' + n : n, desc)
+        },
+        
+        
+        getObjectWithExpectedEvents : function (event, expected) {
+            var events      = {}
+            
+            if (this.typeOf(event) == 'Array') 
+                Joose.A.each(event, function (eventName) {
+                    events[ eventName ] = expected
+                })
+            else
+                events[ event ]         = expected
+                
+            return events
+        },
+        
+        
+<span id='Siesta-Test-Browser-method-wontFire'>        /**
+</span>         * This assertion passes if the observable does not fire the specified event(s) after calling this method.
+         * 
+         * @param {Mixed} observable Any browser observable, window object, element instances, CSS selector.
+         * @param {String/Array[String]} event The name of event or array of such
+         * @param {String} desc The description of the assertion.
+         */
+        wontFire : function(observable, event, desc) {
+            this.firesOk({
+                observable      : observable,
+                events          : this.getObjectWithExpectedEvents(event, 0), 
+                desc            : desc
+            });
+        },
+
+<span id='Siesta-Test-Browser-method-firesOnce'>        /**
+</span>         * This assertion passes if the observable fires the specified event exactly once after calling this method.
+         * 
+         * @param {Mixed} observable Any browser observable, window object, element instances, CSS selector.
+         * @param {String/Array[String]} event The name of event or array of such
+         * @param {String} desc The description of the assertion.
+         */
+        firesOnce : function(observable, event, desc) {
+            this.firesOk({
+                observable      : observable,
+                events          : this.getObjectWithExpectedEvents(event, 1), 
+                desc            : desc
+            });
+        },
+
+<span id='Siesta-Test-Browser-method-isntFired'>        /**
+</span>         * Alias for {@link #wontFire} method
+         * 
+         * @param {Mixed} observable Any browser observable, window object, element instances, CSS selector.
+         * @param {String/Array[String]} event The name of event or array of such
+         * @param {String} desc The description of the assertion.
+         */
+        isntFired : function() {
+            this.wontFire.apply(this, arguments);
+        },
+
+<span id='Siesta-Test-Browser-method-firesAtLeastNTimes'>        /**
+</span>         * This assertion passes if the observable fires the specified event at least `n` times after calling this method.
+         * 
+         * @param {Mixed} observable Any browser observable, window object, element instances, CSS selector.
+         * @param {String} event The name of event
+         * @param {Number} n The minimum number of events to be fired
+         * @param {String} desc The description of the assertion.
+         */
+        firesAtLeastNTimes : function(observable, event, n, desc) {
+            this.firesOk(observable, event, '&gt;=' + n, desc);
+        },
+
+
+        // This method accepts actionTargets as input (Dom node, string, CQ etc) and does a first normalization pass to get a DOM element.
+        // After initial normalization it also tries to locate, the 'top' DOM node at the center of the first pass resulting DOM node.
+        // This is the only element we can truly interact with in a real browser.
+        // returns an object containing the element plus coordinates
+        getNormalizedTopElementInfo : function (actionTarget, skipWarning, actionName) {
+            var doc         = this.global.document;
+            var xy, el;
+
+            actionTarget = actionTarget || this.currentPosition;
+
+            // First lets get a normal DOM element to work with
+            if (this.valueIsArray(actionTarget)) {
+                // If the actionTarget is an array, we just resolve the element at that position and that's it
+                xy = actionTarget;
+                el = doc.elementFromPoint(actionTarget[0], actionTarget[1]);
+            } else {
+                el = this.normalizeElement(actionTarget);
+            }
+
+            // IE returns null for elementFromPoint in some cases
+            el = el || doc.body;
+
+            // If this element is not visible, something is wrong
+            if (!skipWarning &amp;&amp; !this.isElementVisible(el)) {
+                this.fail('findTopDomElement: ' + (actionName ? &quot;Target element of action [&quot; + actionName + &quot;]&quot; : &quot;Target element of some action&quot;) +
+                        &quot; is not visible: &quot; + (el.id ? '#' + el.id : el)
+                );
+
+                return; // No point going further
+            }
+
+            if (!this.valueIsArray(actionTarget)) {
+                doc         = el.ownerDocument;
+                xy          = this.findCenter(el);
+                el          = doc.elementFromPoint(xy[0], xy[1]);
+
+                if (!el) {
+                    this.fail('findTopDomElement: Could not find any element at [' + xy + ']');
+                    return; // No point going further
+                }
+            }
+
+            return {
+                el          : el,
+                xy          : xy
+            }
+        }
+    }
+});
+</pre>
+</body>
+</html>

@@ -1,0 +1,81 @@
+/*
+
+Siesta 2013-04-12
+Copyright(c) 2009-2013 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/products/siesta/license
+
+*/
+;(function () {
+    
+var ID = 0
+
+Class('Siesta.Result', {
+    
+    has : {
+        description     : null,
+        
+        children        : Joose.I.Array,
+        
+        length          : 0,
+        
+        id              : function () {
+            return ++ID
+        },
+        
+        parent          : null
+    },
+    
+    
+    methods : {
+        
+        itemAt : function (i) {
+            return this.children[ i ]
+        },
+        
+        
+        push        : function (result) {
+            this.children.push(result)
+            
+            result.parent   = this
+            
+            this.length     = this.children.length
+        },
+        
+        
+        each : function (func, scope) {
+            var children        = this.children
+            
+            if (func.call(scope || this, this) === false) return false
+            
+            for (var i = 0; i < children.length; i++)
+                if (children[ i ].each(func, scope) === false) return false
+        },
+        
+        
+        toString : function () {
+            return this.description
+        },
+        
+        
+        toJSON : function () {
+            return {
+                type        : this.meta.name,
+                description : this.description
+            }
+        }
+    },
+    
+    // used for self-testing when we need different ids for outer context and context being tested
+    my : {
+        methods     : {
+            seedID : function (value) {
+                ID          = value
+            }
+        }
+    }
+        
+})
+
+
+})()

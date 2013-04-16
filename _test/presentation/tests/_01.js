@@ -14,9 +14,13 @@ StartTest(function (t) {
 
             t.is(todos.children.length, 0, '0 TODOs');
             next();
+        },
+
+        function(next) {
+            //test cleanup: we don't want any localstorage saved between tests
+            localStorage.clear();
+
+            next();
         }
     );
-
-    //test cleanup: we don't want any localstorage saved between tests
-    localStorage.clear();
 });
